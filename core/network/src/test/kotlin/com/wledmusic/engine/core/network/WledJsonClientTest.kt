@@ -155,4 +155,39 @@ class WledJsonClientTest {
         val names = (WledJsonClient().effectNames("127.0.0.1", port) as WledResult.Success).value
         assertEquals(listOf("Solid", "Blink", "Breathe"), names)
     }
+
+    private fun resource(name: String): String =
+        javaClass.classLoader!!.getResource("wled-16.0.0/$name")!!.readText()
+
+    @Test
+    fun parsesRealMatrixInfo() {
+        // Образец с реальной лампы WLED 16.0.0 (ESP32, 16×16), MAC/IP обезличены.
+        val info = WledJsonClient().parseInfo(resource("info-matrix-16x16.json"))!!
+        assertEquals("16.0.0", info.version)
+        assertEquals(256, info.ledCount)
+        assertEquals(WledMatrix(16, 16), info.matrix)
+        assertTrue(info.hasAudioReactive)
+        assertEquals(false, info.live)
+        assertEquals(null, info.liveMode)
+        assertEquals(null, info.liveIp)
+    }
+
+    @Test
+    fun realMatrixSegmentLengthCountsRows() {
+        // WLED отдаёт len = 16 (ширина), а в 2D-сегменте 16×16 = 256 LED.
+        val state = WledJsonClient().parseState(resource("state-matrix-16x16.json"))!!
+        assertEquals(0, state.mainSegment)
+        assertEquals(0, state.liveOverride)
+        val main = state.main!!
+        assertEquals(16, main.stopY - main.startY)
+        assertEquals(256, main.length)
+    }
+
+    @Test
+    fun oneDimensionalSegmentLength() {
+        val state = WledJsonClient().parseState(
+            """{"on":true,"bri":128,"seg":[{"id":0,"start":10,"stop":70,"fx":0}]}"""
+        )!!
+        assertEquals(60, state.main!!.length)
+    }
 }

@@ -52,8 +52,12 @@ data class WledSegment(
     val primaryColor: Int?,
     val on: Boolean,
     val brightness: Int,
+    /** Строки 2D-сегмента; у 1D-сегмента `startY = 0`, `stopY = 1`. */
+    val startY: Int = 0,
+    val stopY: Int = 1,
 ) {
-    val length: Int get() = stop - start
+    /** Число LED сегмента. WLED в поле `len` отдаёт только ширину, поэтому 2D-сегмент считается по X×Y. */
+    val length: Int get() = (stop - start) * (stopY - startY).coerceAtLeast(1)
 }
 
 /** Состояние из `GET /json/state`. */
@@ -199,6 +203,8 @@ class WledJsonClient(
                 primaryColor = (s["col"] as? JsonArray)?.firstOrNull()?.let(::parseColor),
                 on = s.bool("on") ?: true,
                 brightness = s.int("bri") ?: 255,
+                startY = s.int("startY") ?: 0,
+                stopY = s.int("stopY") ?: 1,
             )
         } ?: emptyList()
         return WledState(
