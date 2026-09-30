@@ -24,6 +24,9 @@ class FloatRingBuffer(capacity: Int) {
     /** Отсчёты, отброшенные из-за переполнения. */
     val dropped: Long get() = droppedCount.get()
 
+    /** Сколько отсчётов прочитано или пропущено читателем с начала. */
+    val readPosition: Long get() = readPos.get()
+
     fun available(): Int = (writePos.get() - readPos.get()).toInt()
 
     /** Только писатель. Возвращает число записанных отсчётов. */

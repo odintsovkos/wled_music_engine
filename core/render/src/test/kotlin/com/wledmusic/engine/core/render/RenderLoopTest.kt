@@ -16,7 +16,7 @@ class RenderLoopTest {
     fun rendersAtFixedRateWithoutNewFeatures() = runTest {
         var frames = 0
         val settings = MutableStateFlow(RenderSettings(EffectId.AMBIENT_GLOW))
-        val loop = RenderLoop(LedLayout.Strip(30), settings, { _, n -> assertEquals(30, n); frames++ }, fps = 50,
+        val loop = RenderLoop(LedLayout.Strip(30), settings, { _, n, _ -> assertEquals(30, n); frames++ }, fps = 50,
             clockNanos = { currentTime * 1_000_000 })
         val features = MutableStateFlow<AudioFeatures?>(Frames.of(level = 0.5f))
         val job = launch { loop.run(features) }
@@ -29,7 +29,7 @@ class RenderLoopTest {
     fun settingsChangeAppliesOnNextFrame() = runTest {
         val out = ArrayList<ByteArray>()
         val settings = MutableStateFlow(RenderSettings(EffectId.AMBIENT_GLOW, EffectParams(brightness = 100)))
-        val loop = RenderLoop(LedLayout.Strip(10), settings, { rgb, _ -> out += rgb.copyOf() },
+        val loop = RenderLoop(LedLayout.Strip(10), settings, { rgb, _, _ -> out += rgb.copyOf() },
             clockNanos = { currentTime * 1_000_000 })
         val job = launch { loop.run(MutableStateFlow(null)) }
         advanceTimeBy(100)

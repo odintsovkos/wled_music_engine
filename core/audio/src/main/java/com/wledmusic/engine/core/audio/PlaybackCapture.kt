@@ -5,6 +5,7 @@ import android.media.AudioAttributes
 import android.media.AudioFormat
 import android.media.AudioPlaybackCaptureConfiguration
 import android.media.AudioRecord
+import android.media.AudioTimestamp
 import android.media.projection.MediaProjection
 import android.os.Process
 import android.util.Log
@@ -28,6 +29,20 @@ class PlaybackCapture(
     @Volatile private var running = false
     private var record: AudioRecord? = null
     private var reader: Thread? = null
+
+    // Привязка «позиция кадра → время захвата» по AudioRecord.getTimestamp (CLOCK_MONOTONIC).
+    @Volatile private var stampFrame = -1L
+    @Volatile private var stampNanos = 0L
+
+    /**
+     * Время захвата (System.nanoTime) отсчёта с номером [framePosition] от начала записи;
+     * null — временная метка AudioRecord недоступна, нужна оценка по заполнению буфера.
+     */
+    fun captureTimeNanos(framePosition: Long): Long? {
+        val frame = stampFrame
+        if (frame < 0) return null
+        return stampNanos + (framePosition - frame) * 1_000_000_000L / sampleRate
+    }
 
     /** Кодировка, с которой удалось открыть AudioRecord. */
     var encoding: Int = AudioFormat.ENCODING_INVALID
@@ -93,6 +108,8 @@ class PlaybackCapture(
         val isFloat = rec.audioFormat == AudioFormat.ENCODING_PCM_FLOAT
         val floatIn = if (isFloat) FloatArray(blockFrames * 2) else null
         val shortIn = if (!isFloat) ShortArray(blockFrames * 2) else null
+        val timestamp = AudioTimestamp()
+        var framesRead = 0L
 
         while (running) {
             val read = if (floatIn != null) {
@@ -114,6 +131,12 @@ class PlaybackCapture(
                 for (i in 0 until frames) mono[i] = (s[2 * i] + s[2 * i + 1]) / 65_536f
             }
             buffer.write(mono, 0, frames)
+            framesRead += frames
+            if (rec.getTimestamp(timestamp, AudioTimestamp.TIMEBASE_MONOTONIC) == AudioRecord.SUCCESS) {
+                // framePosition в метке — от начала записи, как и framesRead; nanoTime — CLOCK_MONOTONIC = System.nanoTime.
+                stampNanos = timestamp.nanoTime
+                stampFrame = timestamp.framePosition
+            }
         }
     }
 

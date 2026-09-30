@@ -42,6 +42,7 @@ dependencies {
     implementation(project(":core:audio"))
     implementation(project(":core:dsp"))
     implementation(project(":core:network"))
+    implementation(project(":core:render"))
 
     implementation(libs.androidx.core.ktx)
     implementation(libs.androidx.activity.compose)

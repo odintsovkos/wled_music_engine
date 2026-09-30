@@ -12,6 +12,11 @@ import androidx.activity.enableEdgeToEdge
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.activity.viewModels
 import androidx.compose.runtime.getValue
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import com.wledmusic.engine.core.render.Palette
+import com.wledmusic.engine.session.LampStatus
+import com.wledmusic.engine.session.SyncMode
+import com.wledmusic.engine.ui.theme.readableAccent
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
 import androidx.lifecycle.ViewModel
@@ -53,8 +58,9 @@ class MainActivity : ComponentActivity() {
         val data = result.data
         if (result.resultCode == Activity.RESULT_OK && data != null && request != null) {
             startForegroundService(
-                SyncService.startIntent(this, result.resultCode, data, request.host, request.port, request.packetsPerSecond)
+                SyncService.startIntent(this, result.resultCode, data, request.host, request.port, request.packetsPerSecond, request.mode)
             )
+            viewModel.onSessionHandedOver()
         } else {
             viewModel.onPermissionDenied()
         }
@@ -70,8 +76,15 @@ class MainActivity : ComponentActivity() {
             }
         }
         setContent {
-            WmeTheme {
-                MainScreen(
+            val engine by viewModel.engine.collectAsStateWithLifecycle()
+            val session by viewModel.session.collectAsStateWithLifecycle()
+            // Акцент повторяет активную палитру: эффекта RGB Engine или цвета сегмента WLED.
+            val accentRgb = when (engine.mode) {
+                SyncMode.RGB_ENGINE -> Palette.of(engine.paramsFor(engine.effect).palette).accent
+                SyncMode.AUDIO_REACTIVE -> (session.lamp as? LampStatus.Available)?.state?.main?.primaryColor?.takeIf { it != 0 }
+            }
+            WmeTheme(accent = readableAccent(accentRgb)) {
+                AppRoot(
                     viewModel = viewModel,
                     showPermissionRationale = showPermissionRationale,
                     notificationsDenied = notificationsDenied,
@@ -82,11 +95,22 @@ class MainActivity : ComponentActivity() {
                     onPermissionRationaleDismiss = {
                         showPermissionRationale = false
                         pendingStart = null
+                        viewModel.onStartCancelled()
                     },
                     onStop = { startService(SyncService.stopIntent(this)) },
                 )
             }
         }
+    }
+
+    override fun onStart() {
+        super.onStart()
+        viewModel.onForeground(true)
+    }
+
+    override fun onStop() {
+        viewModel.onForeground(false)
+        super.onStop()
     }
 
     private fun requestProjection() {

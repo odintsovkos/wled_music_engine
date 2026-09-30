@@ -60,10 +60,12 @@ sealed interface SenderStatus {
  * Отправляет последний доступный кадр признаков не чаще [packetsPerSecond] раз в секунду.
  * Устаревшие кадры не буферизуются: на каждом тике берётся только текущее значение [frames],
  * и уже отправленный кадр повторно не шлётся. Ошибки сети не прерывают цикл.
+ * [onSent] вызывается после успешной отправки кадра (для замера задержки).
  */
 class AudioSyncSender(
     private val transport: DatagramTransport,
     packetsPerSecond: Int = DEFAULT_RATE,
+    private val onSent: (AudioFeatures) -> Unit = {},
 ) {
     init {
         require(packetsPerSecond in RATE_RANGE) { "rate must be in $RATE_RANGE" }
@@ -90,6 +92,7 @@ class AudioSyncSender(
                         transport.send(AudioSyncCodec.encode(AudioSyncPacket.from(frame), buffer))
                         _packetsSent.value++
                         _status.value = SenderStatus.Sending
+                        onSent(frame)
                     } catch (e: IOException) {
                         _status.value = SenderStatus.Error(e.message ?: e.javaClass.simpleName)
                     }

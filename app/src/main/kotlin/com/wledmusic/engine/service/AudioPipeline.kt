@@ -14,11 +14,15 @@ import kotlin.math.abs
  * DSP-поток: забирает блоки из кольцевого буфера захвата, считает признаки и публикует их.
  * Чтение аудио никогда не ждёт DSP; если DSP отстал, накопленные блоки пропускаются,
  * чтобы задержка не росла.
+ *
+ * [captureTimeNanos] переводит номер отсчёта от начала записи во время его захвата (null —
+ * временная метка AudioRecord недоступна, тогда время оценивается по заполнению буфера).
  */
 class AudioPipeline(
     private val buffer: FloatRingBuffer,
     private val engine: DspEngine,
     private val repository: SessionStateRepository,
+    private val captureTimeNanos: (framePosition: Long) -> Long?,
     private val musicActive: () -> Boolean,
 ) {
     @Volatile private var running = false
@@ -58,12 +62,18 @@ class AudioPipeline(
                 continue
             }
             if (available > maxBacklog) buffer.skip((available - hop) / hop * hop)
+            val backlog = buffer.available() - hop
             if (!buffer.read(block, 0, hop)) continue
 
             val t0 = System.nanoTime()
+            // Последний отсчёт блока: позиция чтения + отброшенные при переполнении отсчёты.
+            val lastFrame = buffer.readPosition + buffer.dropped - 1
+            val stamped = captureTimeNanos(lastFrame)
+            val captureNanos = stamped ?: (t0 - backlog * 1_000_000_000L / engine.config.sampleRate)
             val features = engine.process(block)
-            avgNanos = if (avgNanos == 0.0) (System.nanoTime() - t0).toDouble()
-            else avgNanos * 0.98 + (System.nanoTime() - t0) * 0.02
+            val ready = System.nanoTime()
+            avgNanos = if (avgNanos == 0.0) (ready - t0).toDouble()
+            else avgNanos * 0.98 + (ready - t0) * 0.02
 
             val now = SystemClock.elapsedRealtime()
             if (now - lastMusicPollMs >= MUSIC_POLL_MS) {
@@ -79,7 +89,7 @@ class AudioPipeline(
                 lastSilent = result.silent
                 lastBlocked = result.captureBlockedSuspected
             }
-            repository.onFeatures(features)
+            repository.onFeatures(features, captureNanos, ready, estimated = stamped == null)
 
             if (now - lastTimingReportMs >= 1_000) {
                 repository.onDspTiming((avgNanos / 1e6).toFloat())
