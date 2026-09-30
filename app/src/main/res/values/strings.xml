@@ -1,0 +1,58 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name" translatable="false">WLED Music Engine</string>
+    <string name="notification_channel">Синхронизация</string>
+    <string name="notification_stopped_by_system">Синхронизация остановлена системой. Откройте приложение, чтобы запустить снова.</string>
+
+    <string name="capture_inactive">Не активен</string>
+    <string name="capture_active">Захват активен</string>
+    <string name="capture_silence">Тишина</string>
+    <string name="capture_no_permission">Нет разрешения</string>
+    <string name="capture_stopped_by_system">Остановлен системой</string>
+
+    <string name="transport_idle">Ожидание</string>
+    <string name="transport_sending_to">Отправка → %1$s</string>
+    <string name="transport_no_network">Нет сети Wi-Fi</string>
+    <string name="transport_error">Ошибка сети</string>
+
+    <string name="action_start">Старт</string>
+    <string name="action_stop">Стоп</string>
+    <string name="action_check">Проверить</string>
+    <string name="action_continue">Продолжить</string>
+    <string name="action_cancel">Отмена</string>
+    <string name="action_send_anyway">Отправлять</string>
+
+    <string name="section_capture">Захват звука</string>
+    <string name="section_lamp">Лампа WLED</string>
+    <string name="section_transport">Передача</string>
+
+    <string name="label_host">IP-адрес или имя лампы</string>
+    <string name="label_port">UDP-порт</string>
+    <string name="label_rate">Частота пакетов: %1$d/с</string>
+    <string name="label_level">Уровень</string>
+    <string name="error_host">Введите IPv4-адрес или имя хоста</string>
+    <string name="error_port">Порт 1–65535</string>
+
+    <string name="lamp_unknown">Не проверена</string>
+    <string name="lamp_checking">Проверка…</string>
+    <string name="lamp_available">%1$s · WLED %2$s</string>
+    <string name="lamp_ar_missing">Usermod Audio Reactive не найден</string>
+    <string name="lamp_ar_receive">Audio Reactive: приём Sound Sync включён</string>
+    <string name="lamp_ar_not_receive">Включите Audio Reactive → Sync → Receive на лампе</string>
+    <string name="lamp_unavailable_timeout">Недоступна: нет ответа</string>
+    <string name="lamp_unavailable_network">Недоступна: нет связи</string>
+    <string name="lamp_unavailable_invalid">Недоступна: ответ не похож на WLED</string>
+
+    <string name="packets_sent">Пакетов отправлено: %1$d</string>
+    <string name="dsp_time">DSP: %1$.2f мс/кадр</string>
+    <string name="stop_reason">Причина: %1$s</string>
+    <string name="hint_capture_blocked">Музыка играет, но захватывается тишина — вероятно, проигрыватель запрещает захват звука. Попробуйте совместимый проигрыватель.</string>
+    <string name="hint_stopped_by_system">Android остановил захват (например, отозвано разрешение). Нажмите «Старт», чтобы начать заново.</string>
+    <string name="hint_notifications_denied">Без разрешения на уведомления статус не будет виден в шторке.</string>
+
+    <string name="public_title">Адрес вне локальной сети</string>
+    <string name="public_text">%1$s не похож на адрес в локальной сети. На него будут отправляться уровни громкости и спектр. Продолжить?</string>
+
+    <string name="permission_title">Разрешения для захвата звука</string>
+    <string name="permission_text">Android требует разрешение «Микрофон», чтобы захватывать звук других приложений. Микрофон не используется: звук не записывается и не покидает телефон — в сеть уходят только уровни громкости и спектр.\n\nУведомление показывает состояние синхронизации и кнопку остановки.\n\nЗатем Android попросит разрешить запись экрана — это системный способ доступа к звуку. Выберите «Весь экран».</string>
+</resources>

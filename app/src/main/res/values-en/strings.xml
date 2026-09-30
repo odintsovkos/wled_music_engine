@@ -1,0 +1,57 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="notification_channel">Sync</string>
+    <string name="notification_stopped_by_system">Sync was stopped by the system. Open the app to start again.</string>
+
+    <string name="capture_inactive">Inactive</string>
+    <string name="capture_active">Capturing</string>
+    <string name="capture_silence">Silence</string>
+    <string name="capture_no_permission">No permission</string>
+    <string name="capture_stopped_by_system">Stopped by system</string>
+
+    <string name="transport_idle">Idle</string>
+    <string name="transport_sending_to">Sending → %1$s</string>
+    <string name="transport_no_network">No Wi-Fi network</string>
+    <string name="transport_error">Network error</string>
+
+    <string name="action_start">Start</string>
+    <string name="action_stop">Stop</string>
+    <string name="action_check">Check</string>
+    <string name="action_continue">Continue</string>
+    <string name="action_cancel">Cancel</string>
+    <string name="action_send_anyway">Send anyway</string>
+
+    <string name="section_capture">Audio capture</string>
+    <string name="section_lamp">WLED lamp</string>
+    <string name="section_transport">Transport</string>
+
+    <string name="label_host">Lamp IP address or host name</string>
+    <string name="label_port">UDP port</string>
+    <string name="label_rate">Packet rate: %1$d/s</string>
+    <string name="label_level">Level</string>
+    <string name="error_host">Enter an IPv4 address or host name</string>
+    <string name="error_port">Port 1–65535</string>
+
+    <string name="lamp_unknown">Not checked</string>
+    <string name="lamp_checking">Checking…</string>
+    <string name="lamp_available">%1$s · WLED %2$s</string>
+    <string name="lamp_ar_missing">Audio Reactive usermod not found</string>
+    <string name="lamp_ar_receive">Audio Reactive: Sound Sync receive is on</string>
+    <string name="lamp_ar_not_receive">Enable Audio Reactive → Sync → Receive on the lamp</string>
+    <string name="lamp_unavailable_timeout">Unavailable: no response</string>
+    <string name="lamp_unavailable_network">Unavailable: no connection</string>
+    <string name="lamp_unavailable_invalid">Unavailable: response is not from WLED</string>
+
+    <string name="packets_sent">Packets sent: %1$d</string>
+    <string name="dsp_time">DSP: %1$.2f ms/frame</string>
+    <string name="stop_reason">Reason: %1$s</string>
+    <string name="hint_capture_blocked">Music is playing but only silence is captured — the player probably blocks audio capture. Try a compatible player.</string>
+    <string name="hint_stopped_by_system">Android stopped the capture (e.g. permission was revoked). Tap Start to begin again.</string>
+    <string name="hint_notifications_denied">Without notification permission the status will not be shown in the shade.</string>
+
+    <string name="public_title">Address outside the local network</string>
+    <string name="public_text">%1$s does not look like a local network address. Volume levels and spectrum will be sent to it. Continue?</string>
+
+    <string name="permission_title">Permissions for audio capture</string>
+    <string name="permission_text">Android requires the Microphone permission to capture audio from other apps. The microphone is not used: audio is not recorded and never leaves the phone — only volume levels and spectrum are sent to the network.\n\nThe notification shows the sync status and a Stop button.\n\nAndroid will then ask to allow screen recording — this is the system way to access audio. Choose \"Entire screen\".</string>
+</resources>
