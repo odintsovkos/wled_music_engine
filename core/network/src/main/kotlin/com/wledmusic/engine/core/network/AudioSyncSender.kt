@@ -18,6 +18,10 @@ import kotlin.math.ceil
 interface DatagramTransport : AutoCloseable {
     @Throws(IOException::class)
     fun send(data: ByteArray)
+
+    /** Отправляет первые [length] байт [data]. */
+    @Throws(IOException::class)
+    fun send(data: ByteArray, length: Int) = send(if (length == data.size) data else data.copyOf(length))
 }
 
 /**
@@ -37,8 +41,10 @@ class UdpTransport(
         configureSocket(socket)
     }
 
-    override fun send(data: ByteArray) {
-        socket.send(DatagramPacket(data, data.size, address, port))
+    override fun send(data: ByteArray) = send(data, data.size)
+
+    override fun send(data: ByteArray, length: Int) {
+        socket.send(DatagramPacket(data, length, address, port))
     }
 
     override fun close() = socket.close()

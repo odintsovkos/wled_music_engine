@@ -40,6 +40,11 @@ data class DspConfig(
     /** Абсолютный минимум flux (на бин) для срабатывания. */
     val onsetMinFlux: Float = 0.01f,
     val onsetRefractoryMs: Float = 100f,
+
+    /** Адаптивная нормализация (AGC). Выкл. — фиксированный опорный уровень −20 dBFS = 1.0. */
+    val autoGain: Boolean = true,
+    /** Детекция акцентов. Выкл. — [AudioFeatures.peak] всегда false. */
+    val beatDetection: Boolean = true,
 ) {
     init {
         require(fftSize > 0 && fftSize and (fftSize - 1) == 0) { "fftSize must be a power of two" }
@@ -48,6 +53,24 @@ data class DspConfig(
         require(agcTarget in 0.05f..1f) { "agcTarget must be in 0.05..1" }
         require(bandMinHz > 0f && bandMaxHz > bandMinHz) { "invalid band range" }
         require(attackMs > 0f && releaseMs > 0f && agcDecayMs > 0f && agcRiseMs > 0f) { "time constants must be positive" }
+        require(bassRange.start >= MIN_BAND_HZ && highRange.endInclusive <= MAX_BAND_HZ) { "bands must lie within $MIN_BAND_HZ..$MAX_BAND_HZ Hz" }
+        require(bassRange.start < bassRange.endInclusive && midRange.start < midRange.endInclusive &&
+            highRange.start < highRange.endInclusive) { "band bounds must be increasing" }
+        require(bassRange.endInclusive == midRange.start && midRange.endInclusive == highRange.start) { "bass, mid and high must be adjacent" }
+    }
+
+    /** Отличается от [other] только параметрами, которые можно менять без перезапуска захвата. */
+    fun isLiveCompatibleWith(other: DspConfig): Boolean =
+        sampleRate == other.sampleRate && fftSize == other.fftSize && hopSize == other.hopSize &&
+            bandCount == other.bandCount && bandMinHz == other.bandMinHz && bandMaxHz == other.bandMaxHz
+
+    companion object {
+        const val MIN_BAND_HZ = 20f
+        const val MAX_BAND_HZ = 16_000f
+        /** Диапазоны параметров, доступных в Pro Audio. */
+        val ATTACK_RANGE_MS = 5f..200f
+        val RELEASE_RANGE_MS = 50f..1_000f
+        val NOISE_GATE_RANGE_DB = -80f..-30f
     }
 
     /** Длительность одного DSP-кадра в миллисекундах. */

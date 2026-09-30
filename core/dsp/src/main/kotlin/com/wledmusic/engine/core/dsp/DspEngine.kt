@@ -1,5 +1,6 @@
 package com.wledmusic.engine.core.dsp
 
+import java.util.concurrent.atomic.AtomicReference
 import kotlin.math.ceil
 import kotlin.math.exp
 import kotlin.math.ln
@@ -9,9 +10,15 @@ import kotlin.math.sqrt
  * DSP-движок: принимает моно-PCM блоками по [DspConfig.hopSize] отсчётов (float, −1..1)
  * и выдаёт [AudioFeatures] на каждый блок. Анализ ведётся скользящим окном [DspConfig.fftSize].
  *
- * Не потокобезопасен: вызывается из одного DSP-потока.
+ * Не потокобезопасен: [process] вызывается из одного DSP-потока. Исключение — [reconfigure]:
+ * его можно вызывать из любого потока, новая конфигурация применяется в начале следующего кадра.
  */
-class DspEngine(val config: DspConfig = DspConfig()) {
+class DspEngine(config: DspConfig = DspConfig()) {
+    /** Текущая конфигурация; меняется только в DSP-потоке при применении [reconfigure]. */
+    @Volatile var config: DspConfig = config
+        private set
+    private val pending = AtomicReference<DspConfig?>(null)
+
     private val fft = Fft(config.fftSize)
     private val window = FloatArray(config.fftSize)
     private val magnitudes = FloatArray(fft.binCount)
@@ -21,7 +28,7 @@ class DspEngine(val config: DspConfig = DspConfig()) {
         config.sampleRate, config.fftSize,
         SpectrumBands.logRanges(config.bandCount, config.bandMinHz, config.bandMaxHz),
     )
-    private val bmhBands = SpectrumBands(
+    private var bmhBands = SpectrumBands(
         config.sampleRate, config.fftSize,
         listOf(config.bassRange, config.midRange, config.highRange),
     )
@@ -30,6 +37,8 @@ class DspEngine(val config: DspConfig = DspConfig()) {
 
     private val frameMs = config.frameMs
     private val agcFloor = dbToLinear(config.agcFloorDb)
+    private val fixedLevelRef = dbToLinear(FIXED_REFERENCE_DB)
+    private val fixedMagnitudeRef = fixedLevelRef * kotlin.math.sqrt(2f)
     private val gate = NoiseGate(config.noiseGateDb, config.noiseGateHysteresisDb)
 
     // Громкость и полосы — к среднему (есть пульсация), спектральные каналы — к общему пику (сохраняется форма спектра).
@@ -43,11 +52,13 @@ class DspEngine(val config: DspConfig = DspConfig()) {
     private val bmhSmooth = Array(3) { smoother() }
     private val channelSmooth = Array(config.bandCount) { smoother() }
 
-    private val onset = OnsetDetector(fft.binCount, config)
+    private var onset = OnsetDetector(fft.binCount, config)
     private val peakSearchStart = ceil(config.bandMinHz / binHz).toInt().coerceAtLeast(1)
 
     /** Обрабатывает [config.hopSize] отсчётов из [samples], начиная с [offset]. */
     fun process(samples: FloatArray, offset: Int = 0): AudioFeatures {
+        pending.getAndSet(null)?.let(::apply)
+        val config = config
         val hop = config.hopSize
         require(offset >= 0 && offset + hop <= samples.size) { "not enough samples for a hop" }
 
@@ -70,10 +81,15 @@ class DspEngine(val config: DspConfig = DspConfig()) {
         fft.magnitudes(window, magnitudes)
         channelBands.compute(magnitudes, channelValues)
         bmhBands.compute(magnitudes, bmhValues)
-        val peak = onset.update(magnitudes, gateOpen)
+        // Детектор обновляется и при выключенной детекции, чтобы история flux была актуальной при включении.
+        val peak = onset.update(magnitudes, gateOpen) && config.beatDetection
 
         val rawLevel: Float
-        if (gateOpen) {
+        if (gateOpen && !config.autoGain) {
+            rawLevel = (rms / fixedLevelRef).coerceIn(0f, 1f)
+            for (i in 0 until 3) bmhValues[i] = (bmhValues[i] / fixedMagnitudeRef).coerceIn(0f, 1f)
+            for (i in channelValues.indices) channelValues[i] = (channelValues[i] / fixedMagnitudeRef).coerceIn(0f, 1f)
+        } else if (gateOpen) {
             rawLevel = levelGain.normalize(rms)
             for (i in 0 until 3) bmhValues[i] = bmhGains[i].normalize(bmhValues[i])
             var maxChannel = 0f
@@ -100,10 +116,42 @@ class DspEngine(val config: DspConfig = DspConfig()) {
             peak = peak,
             majorPeakHz = peakHz,
             majorPeakMagnitude = peakMag,
-            majorPeakLevel = if (gateOpen) channelGain.scale(peakMag) else 0f,
+            majorPeakLevel = when {
+                !gateOpen -> 0f
+                config.autoGain -> channelGain.scale(peakMag)
+                else -> (peakMag / fixedMagnitudeRef).coerceIn(0f, 1f)
+            },
             zeroCrossings = zeroCrossings,
             gateOpen = gateOpen,
         )
+    }
+
+    /**
+     * Запрашивает смену конфигурации без остановки захвата. Меняться могут только параметры,
+     * совместимые по [DspConfig.isLiveCompatibleWith]; состояние AGC и сглаживания сохраняется.
+     */
+    fun reconfigure(newConfig: DspConfig) {
+        require(newConfig.isLiveCompatibleWith(config)) { "sample rate, FFT, hop and channel grid cannot change live" }
+        pending.set(newConfig)
+    }
+
+    private fun apply(new: DspConfig) {
+        val old = config
+        config = new
+        if (new.attackMs != old.attackMs || new.releaseMs != old.releaseMs) {
+            levelSmooth.setTimes(new.attackMs, new.releaseMs, frameMs)
+            bmhSmooth.forEach { it.setTimes(new.attackMs, new.releaseMs, frameMs) }
+            channelSmooth.forEach { it.setTimes(new.attackMs, new.releaseMs, frameMs) }
+        }
+        if (new.bassRange != old.bassRange || new.midRange != old.midRange || new.highRange != old.highRange) {
+            bmhBands = SpectrumBands(new.sampleRate, new.fftSize, listOf(new.bassRange, new.midRange, new.highRange))
+        }
+        gate.thresholdDb = new.noiseGateDb
+        gate.hysteresisDb = new.noiseGateHysteresisDb
+        if (new.onsetWindowMs != old.onsetWindowMs || new.onsetThresholdK != old.onsetThresholdK ||
+            new.onsetMinFlux != old.onsetMinFlux || new.onsetRefractoryMs != old.onsetRefractoryMs
+        ) onset = OnsetDetector(fft.binCount, new)
+        // AGC-параметры (agcRiseMs и т.п.) в Pro Audio не выносятся и live не меняются.
     }
 
     fun reset() {
@@ -134,5 +182,10 @@ class DspEngine(val config: DspConfig = DspConfig()) {
         val delta = (0.5f * (la - lc) / denom).coerceIn(-0.5f, 0.5f)
         peakHz = (best + delta) * binHz
         peakMag = exp(lb - 0.25f * (la - lc) * delta)
+    }
+
+    private companion object {
+        /** Опорный уровень при выключенном AGC: RMS −20 dBFS даёт уровень 1.0. */
+        const val FIXED_REFERENCE_DB = -20f
     }
 }

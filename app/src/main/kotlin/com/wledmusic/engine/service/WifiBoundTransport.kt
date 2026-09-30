@@ -25,7 +25,9 @@ class WifiBoundTransport(
         this.network = network
     }
 
-    override fun send(data: ByteArray) {
+    override fun send(data: ByteArray) = send(data, data.size)
+
+    override fun send(data: ByteArray, length: Int) {
         val transport = synchronized(lock) {
             current ?: run {
                 val n = network ?: throw IOException("No Wi-Fi network")
@@ -34,7 +36,7 @@ class WifiBoundTransport(
                 UdpTransport(address, port) { n.bindSocket(it) }.also { current = it }
             }
         }
-        transport.send(data)
+        transport.send(data, length)
     }
 
     override fun close() = synchronized(lock) {

@@ -3,7 +3,7 @@ package com.wledmusic.engine.core.dsp
 import kotlin.math.exp
 
 /** Noise gate по уровню в dBFS с гистерезисом закрытия. */
-class NoiseGate(private val thresholdDb: Float, private val hysteresisDb: Float) {
+class NoiseGate(var thresholdDb: Float, var hysteresisDb: Float) {
     var isOpen: Boolean = false
         private set
 
@@ -22,8 +22,14 @@ class NoiseGate(private val thresholdDb: Float, private val hysteresisDb: Float)
  * [attackMs] и [releaseMs] — постоянные времени (τ), [frameMs] — шаг обновления.
  */
 class AttackRelease(attackMs: Float, releaseMs: Float, frameMs: Float) {
-    private val attackCoef = exp(-frameMs / attackMs)
-    private val releaseCoef = exp(-frameMs / releaseMs)
+    private var attackCoef = exp(-frameMs / attackMs)
+    private var releaseCoef = exp(-frameMs / releaseMs)
+
+    /** Меняет постоянные времени, сохраняя текущее значение (без скачка). */
+    fun setTimes(attackMs: Float, releaseMs: Float, frameMs: Float) {
+        attackCoef = exp(-frameMs / attackMs)
+        releaseCoef = exp(-frameMs / releaseMs)
+    }
 
     var value: Float = 0f
         private set
